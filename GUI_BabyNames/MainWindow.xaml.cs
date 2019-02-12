@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -22,34 +24,67 @@ namespace GUI_BabyNames
     public partial class MainWindow : Window
     {
         private List<BabyName> babyNames;
-        private string[,] topNames = new string[11,11];
+        private string[,] topNames = new string[11,10];
+        ObservableCollection<string> stringList = new ObservableCollection<string>();
 
         public MainWindow()
         {
             InitializeComponent();
+            TopNameLB.ItemsSource = stringList;
         }
 
         private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
         {
-            babyNames = new List<BabyName>();
-            try
-            {   // Open the text file using a stream reader.
-                using (StreamReader sr = new StreamReader("../../BabyNames.txt"))
+            babyNames = ReadBabyNames("../../BabyNames.txt");
+            foreach (var babyName in babyNames)
+            {
+                for (int year = 0; year < 10; ++year)
                 {
-                    // Read the stream to a string, and write the string to the console.
+                    var rank = babyName.Rank(year*10 + 1900);
+
+                    if (rank < 1 || rank > 10)
+                        continue;
+
+                    if (topNames[year, rank - 1] == null)
+                    {
+                        topNames[year, rank - 1] = babyName.Name;
+                    }
+                    else
+                    {
+                        topNames[year, rank - 1] += $" and {babyName.Name}";
+                    }
+                }
+            }
+        }
+
+        private void DecadeLB_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var listboxSender = sender as ListBox;
+            if(listboxSender == null)
+                return;
+            stringList.Clear();
+            int decade = listboxSender.SelectedIndex;
+            for (int i = 0; i < 10; i++)
+            {
+                stringList.Add($"#{i+1}: {topNames[decade, i]}");
+            }
+
+        }
+
+        private List<BabyName> ReadBabyNames(string path)
+        {
+            if (!File.Exists(path))
+                throw new FileNotFoundException();
+            var babyNames = new List<BabyName>();
+            try
+            {
+                using (StreamReader sr = new StreamReader(path))
+                {
                     while (!sr.EndOfStream)
                     {
                         String line = sr.ReadLine();
                         var babyNameToAdd = new BabyName(line);
                         babyNames.Add(babyNameToAdd);
-                        for (int year = 0; year < 11; year++)
-                        {
-                            var rank = babyNameToAdd.Rank(year*10 + 1900);
-                            if (rank < 10)
-                            {
-                                topNames[year,rank] = babyNameToAdd.Name;
-                            }
-                        }
                     }
                 }
             }
@@ -57,18 +92,8 @@ namespace GUI_BabyNames
             {
                 MessageBox.Show($"The file could not be read: {exception.Message}");
             }
-        }
 
-        private void DecadeLB_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var listboxSender = (ListBox)sender;
-            List<string> stringList = new List<string>();
-            for (int i = 0; i < 11; i++)
-            {
-                stringList.Add(topNames[listboxSender.SelectedIndex,i]);
-            }
-
-            listboxSender.ItemsSource = stringList;
+            return babyNames;
         }
     }
 }
